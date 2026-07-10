@@ -1,0 +1,56 @@
+# This is important. Make sure to set this to "false" when running the bot.
+debug = true
+
+[bot]
+prefix = "&"
+extensions = [
+    "extensions.announcements",
+    "extensions.leaderboard",
+    "extensions.rss_feed"
+]
+
+repost_channels = []
+publish_channels = []
+
+[channels]
+# Each "options"/"ping_roles" entry is a [display name, channel or role ID] pair,
+# shown in the announcement builder's dropdowns.
+options = []
+ping_roles = []
+
+# Channels every posted announcement is mirrored to for auditing.
+logging_channels = []
+
+# Channels whose posts count toward the &leaderboard command.
+leaderboard_channels = []
+
+[rss]
+# Auto-posts new Star Citizen dev news/videos with no staff involvement.
+enabled = false
+poll_interval_minutes = 10
+post_channel = 0
+
+# RSI has no working official RSS feed (long-standing bug on their end), so this
+# points at a community-run mirror of the same official Comm-Link content instead.
+comm_link_feed_url = "https://leonick.se/feeds/rsi/atom"
+
+# Official Star Citizen YouTube channel (@RobertsSpaceInd).
+youtube_feed_url = "https://www.youtube.com/feeds/videos.xml?channel_id=UCTeLqJq1mXUX5WWoNXLmOIA"
+
+# RSI's official Patch Notes listing (the itemized per-version changelog,
+# separate from the general Comm-Link posts above). Plain server-rendered
+# HTML, so it's polled directly - no third-party mirror needed for this one.
+patch_notes_url = "https://robertsspaceindustries.com/en/patch-notes"
+
+[permissions]
+# This works in a whitelist mode. The invoker of the command must be in an allowed guild and
+# must have an allowed role. If neither of those are true, allowed_users is checked last.
+allowed_guilds = []
+allowed_roles = []
+allowed_users = []
+
+[permissions.debug]
+# This works in addition to the regular permissions, but only if debug mode is enabled.
+allowed_guilds = []
+allowed_roles = []
+allowed_users = []

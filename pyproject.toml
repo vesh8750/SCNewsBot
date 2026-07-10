@@ -1,0 +1,24 @@
+[tool.poetry]
+name = "scnewsbot"
+version = "3.0.2"
+description = "A news bot for the r/starcitizen Discord server."
+authors = ["hencaric"]
+license = "MIT"
+readme = "README.md"
+packages = [
+    { include = "scnewsbot" }
+]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+discord-py = "^2.3.2"
+jishaku = "^2.5.2"
+python-dotenv = "^1.0.1"
+aiohttp = "^3.9"
+
+[tool.poetry.group.dev.dependencies]
+black = "^24.3.0"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
