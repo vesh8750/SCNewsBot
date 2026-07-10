@@ -17,10 +17,27 @@ DESCRIPTION_LIMIT = 4000  # Discord embed description hard cap is 4096
 
 ATOM_NS = {"atom": "http://www.w3.org/2005/Atom"}
 
-COMM_LINK_COLOR = discord.Color.teal()
 PATCH_NOTES_COLOR = discord.Color.gold()
+
+# Comm-Link lumps everything into two Atom categories (Video/Post), which is
+# too coarse to tell a weekly recap from a Q&A from a ship reveal at a glance
+# in Discord. Classify by title pattern instead so each recurring series gets
+# its own sidebar color.
+COMM_LINK_CATEGORY_RULES: list[tuple[re.Pattern, discord.Color]] = [
+    (re.compile(r"^This Week in Star Citizen", re.I), discord.Color.blue()),
+    (re.compile(r"^Roadmap Roundup", re.I), discord.Color.orange()),
+    (re.compile(r"Monthly Report", re.I), discord.Color.dark_gold()),
+    (re.compile(r"^Q&A", re.I), discord.Color.purple()),
+    (re.compile(r"Jump Point", re.I), discord.Color.magenta()),
+    (re.compile(r"Alpha \d+\.\d+", re.I), discord.Color.gold()),
+]
+COMM_LINK_VIDEO_COLOR = discord.Color.red()
+COMM_LINK_DEFAULT_COLOR = discord.Color.teal()
+
 TAG_RE = re.compile(r"<[^>]+>")
 IMG_SRC_RE = re.compile(r'<img[^>]+src=["\']([^"\']+)["\']')
+IFRAME_SRC_RE = re.compile(r'<iframe[^>]+src=["\']([^"\']+)["\']', re.I)
+YOUTUBE_EMBED_ID_RE = re.compile(r"youtube(?:-nocookie)?\.com/embed/([A-Za-z0-9_-]+)", re.I)
 
 # Block-level tags get converted to Markdown before remaining inline tags are
 # stripped, so bullet lists and headings survive instead of collapsing into
@@ -119,6 +136,21 @@ class FeedEntry:
         match = IMG_SRC_RE.search(self.summary_html or "")
         return match.group(1) if match else None
 
+    def youtube_video_id(self) -> str | None:
+        iframe_src = IFRAME_SRC_RE.search(self.summary_html or "")
+        if not iframe_src:
+            return None
+        match = YOUTUBE_EMBED_ID_RE.search(iframe_src.group(1))
+        return match.group(1) if match else None
+
+    def comm_link_color(self) -> discord.Color:
+        if self.category == "Video":
+            return COMM_LINK_VIDEO_COLOR
+        for pattern, color in COMM_LINK_CATEGORY_RULES:
+            if pattern.search(self.title):
+                return color
+        return COMM_LINK_DEFAULT_COLOR
+
 
 def parse_atom_feed(raw_xml: str) -> list[FeedEntry]:
     root = ET.fromstring(raw_xml)
@@ -210,12 +242,15 @@ class RssFeed(commands.Cog, name="RSS Feed"):
             title=entry.title,
             url=entry.link,
             description=entry.to_markdown(entry.summary_html),
-            color=COMM_LINK_COLOR,
+            color=entry.comm_link_color(),
             timestamp=entry.published or datetime.now(timezone.utc),
         )
         image = entry.first_image()
+        video_id = entry.youtube_video_id() if not image else None
         if image:
             embed.set_image(url=image)
+        elif video_id:
+            embed.set_image(url=f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg")
         embed.set_footer(text=f"RSI Comm-Link{f' - {entry.category}' if entry.category else ''}")
         return embed
 
@@ -235,6 +270,11 @@ class RssFeed(commands.Cog, name="RSS Feed"):
 
     async def _post_comm_link_entry(self, channel: discord.abc.Messageable, entry: FeedEntry):
         await channel.send(embed=self._comm_link_embed(entry))
+        video_id = None if entry.first_image() else entry.youtube_video_id()
+        if video_id:
+            # Rich embeds can't host a playable video, so drop the bare watch
+            # URL as a follow-up - Discord's own unfurler turns it into one.
+            await channel.send(f"https://www.youtube.com/watch?v={video_id}")
 
     async def _post_youtube_entry(self, channel: discord.abc.Messageable, entry: FeedEntry):
         await channel.send(f"New video from Star Citizen: **{entry.title}**\n{entry.link}")
