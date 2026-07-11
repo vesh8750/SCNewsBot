@@ -85,7 +85,7 @@ HEADING_RE = re.compile(r"<h[1-6][^>]*>(.*?)</h[1-6]>", re.S | re.I)
 PARAGRAPH_RE = re.compile(r"<p[^>]*>(.*?)</p>", re.S | re.I)
 BREAK_RE = re.compile(r"<br\s*/?>", re.I)
 BLANK_LINES_RE = re.compile(r"\n{3,}")
-LOOSE_BULLET_RE = re.compile(r"\n{2,}(• )")
+LOOSE_BULLET_RE = re.compile(r"\n{2,}(➣ )")
 SECTION_SPLIT_RE = re.compile(r"\n\n\*\*(.+?)\*\*\n")
 
 # RSI's own site (Comm-Link, Patch Notes) renders articles through an
@@ -233,7 +233,7 @@ class FeedEntry:
             inner = BREAK_RE.sub("", m.group(1))  # e.g. stray <h2><br></h2> separators
             return f"\n\n**{inner}**\n" if TAG_RE.sub("", inner).strip() else ""
 
-        text = LIST_ITEM_RE.sub(lambda m: f"\n• {m.group(1)}", text)
+        text = LIST_ITEM_RE.sub(lambda m: f"\n➣ {m.group(1)}", text)
         text = HEADING_RE.sub(_heading, text)
         text = PARAGRAPH_RE.sub(lambda m: f"\n\n{m.group(1)}\n", text)
         text = BREAK_RE.sub("\n", text)
@@ -258,7 +258,12 @@ class FeedEntry:
         if text == "(no content)":
             return []
 
-        parts = SECTION_SPLIT_RE.split(text)
+        # to_markdown() strips leading whitespace, so an article that opens
+        # directly with a heading (no intro paragraph) would otherwise lose
+        # the "\n\n" the split pattern needs and leave that first heading
+        # stuck as literal **bold** text inside the body instead of becoming
+        # its own section.
+        parts = SECTION_SPLIT_RE.split("\n\n" + text)
         sections: list[tuple[str | None, str]] = []
         if parts[0].strip():
             sections.append((None, parts[0].strip()))
@@ -295,7 +300,7 @@ class FeedEntry:
         # Left untruncated here - the caller knows whether a given section
         # will end up as the embed description (4000-char budget) or a field
         # (1024-char budget) and truncates accordingly.
-        return [(header, "\n".join(f"• {b}" for b in bullets)) for header, bullets in sections if bullets]
+        return [(header, "\n".join(f"➣ {b}" for b in bullets)) for header, bullets in sections if bullets]
 
     def first_image(self) -> str | None:
         match = IMG_SRC_RE.search(self.summary_html or "")
@@ -531,7 +536,13 @@ def parse_spectrum_thread_api(payload: dict) -> tuple[list[tuple[str | None, str
             styled = " ".join(_apply_draft_inline_styles(text, block.get("inlineStyleRanges")).split())
 
             if block_type in ("unordered-list-item", "ordered-list-item"):
-                lines.append(("bullet", styled))
+                # Draft.js nests sub-list items via "depth" rather than a
+                # different block type - use the indented ✦ marker (matching
+                # the announcements builder's own bullet convention) for
+                # anything nested under a top-level ➣ item.
+                depth = block.get("depth") or 0
+                marker = "    ✦" if depth > 0 else "➣"
+                lines.append(("bullet", f"{marker} {styled}"))
             elif block_type == "blockquote":
                 lines.append(("bullet", f"> {styled}"))
             else:
@@ -544,7 +555,7 @@ def parse_spectrum_thread_api(payload: dict) -> tuple[list[tuple[str | None, str
         if kind == "heading":
             sections.append([text, []])
         else:
-            sections[-1][1].append(f"• {text}" if kind == "bullet" else text)
+            sections[-1][1].append(text)
 
     # A header with nothing under it (e.g. two headings back to back) would
     # otherwise render as an empty field - fold its text into the previous
@@ -580,7 +591,7 @@ def _apply_section_fields(embed: discord.Embed, sections: list[tuple[str | None,
             break
         if len(text) > remaining:
             text = text[:remaining].rsplit(" ", 1)[0] + "…"
-        name = header or "Details"
+        name = f"__**{header}**__" if header else "Details"
         embed.add_field(name=name, value=text, inline=False)
         used += len(name) + len(text)
 
@@ -592,7 +603,7 @@ def _apply_sections(embed: discord.Embed, sections: list[tuple[str | None, str]]
     sections = list(sections or [])
     if sections:
         first_header, first_text = sections[0]
-        lead = f"**{first_header}**\n{first_text}" if first_header else first_text
+        lead = f"__**{first_header}**__\n{first_text}" if first_header else first_text
         embed.description = lead[:DESCRIPTION_LIMIT]
         sections = sections[1:]
     _apply_section_fields(embed, sections)
