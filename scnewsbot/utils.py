@@ -70,6 +70,14 @@ class Config:
         return self.config.get("rss", {}).get("patch_notes_url")
 
     @property
+    def rss_ptu_patch_notes_url(self) -> str | None:
+        return self.config.get("rss", {}).get("ptu_patch_notes_url")
+
+    @property
+    def rss_announcements_url(self) -> str | None:
+        return self.config.get("rss", {}).get("announcements_url")
+
+    @property
     def allowed_guilds(self) -> list:
         return self._get_allowed_objects("allowed_guilds")
 

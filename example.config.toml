@@ -42,6 +42,13 @@ youtube_feed_url = "https://www.youtube.com/feeds/videos.xml?channel_id=UCTeLqJq
 # HTML, so it's polled directly - no third-party mirror needed for this one.
 patch_notes_url = "https://robertsspaceindustries.com/en/patch-notes"
 
+# PTU (test-branch) patch notes are posted as Spectrum forum threads, not to
+# the listing above. This is the "Patch Notes" subforum.
+ptu_patch_notes_url = "https://robertsspaceindustries.com/spectrum/community/SC/forum/190048"
+
+# RSI's official Spectrum "Announcements" subforum.
+announcements_url = "https://robertsspaceindustries.com/spectrum/community/SC/forum/1"
+
 [permissions]
 # This works in a whitelist mode. The invoker of the command must be in an allowed guild and
 # must have an allowed role. If neither of those are true, allowed_users is checked last.
